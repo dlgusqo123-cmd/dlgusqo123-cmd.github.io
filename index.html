@@ -26,6 +26,9 @@
       </header>
 
       <section class="stage" id="stage" aria-label="마법 놀이 화면">
+        <video class="stage-camera hidden" id="camera" autoplay muted playsinline></video>
+        <canvas class="hand-overlay hidden" id="handOverlay" aria-hidden="true"></canvas>
+        <div class="camera-tint hidden" id="cameraTint" aria-hidden="true"></div>
         <div class="sky-glow"></div>
         <div class="cloud cloud-left"></div>
         <div class="cloud cloud-right"></div>
@@ -61,15 +64,11 @@
         </div>
 
         <p class="guide" id="guide">마법 놀이를 시작해 볼까요?</p>
-
-        <aside class="camera-preview hidden" id="cameraPreview" aria-label="카메라 미리보기">
-          <video id="camera" autoplay muted playsinline></video>
-          <span>내 손</span>
-        </aside>
+        <p class="status hidden" id="status" aria-live="polite"></p>
       </section>
 
       <div class="parent-tools">
-        <button class="text-button hidden" id="togglePreview" type="button">카메라 보기</button>
+        <button class="text-button hidden" id="togglePreview" type="button">내 모습 숨기기</button>
         <button class="text-button hidden" id="restart" type="button">처음부터</button>
       </div>
     </main>
@@ -101,9 +100,9 @@
     </section>
 
     <script
-      src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.js"
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"
       crossorigin="anonymous"
     ></script>
-    <script src="./app.js?v=3"></script>
+    <script src="./app.js?v=4"></script>
   </body>
 </html>
