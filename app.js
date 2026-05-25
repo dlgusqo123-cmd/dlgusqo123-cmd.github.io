@@ -169,13 +169,11 @@ stage.addEventListener("pointerdown", (event) => {
 });
 
 async function createGestureRecognizer() {
-  const { FilesetResolver, GestureRecognizer } = await import(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22"
-  );
+  const { FilesetResolver, GestureRecognizer } = window.vision;
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
   );
-  return GestureRecognizer.createFromOptions(vision, {
+  const options = {
     baseOptions: {
       modelAssetPath:
         "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
@@ -186,7 +184,14 @@ async function createGestureRecognizer() {
     minHandDetectionConfidence: 0.45,
     minHandPresenceConfidence: 0.45,
     minTrackingConfidence: 0.45,
-  });
+  };
+
+  try {
+    return await GestureRecognizer.createFromOptions(vision, options);
+  } catch (_error) {
+    options.baseOptions.delegate = "CPU";
+    return GestureRecognizer.createFromOptions(vision, options);
+  }
 }
 
 async function activateCamera() {
