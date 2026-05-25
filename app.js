@@ -17,7 +17,9 @@ const gemSlots = [...document.querySelectorAll(".slot")];
 const crownGems = [...document.querySelectorAll(".crown-gem")];
 const sparkles = document.querySelector("#sparkles");
 const camera = document.querySelector("#camera");
-const cameraPreview = document.querySelector("#cameraPreview");
+const handOverlay = document.querySelector("#handOverlay");
+const cameraTint = document.querySelector("#cameraTint");
+const status = document.querySelector("#status");
 const togglePreview = document.querySelector("#togglePreview");
 const restart = document.querySelector("#restart");
 const startCamera = document.querySelector("#startCamera");
@@ -57,6 +59,43 @@ function beginGame(nextMode) {
   resetGame();
 }
 
+function setStatus(message) {
+  status.textContent = message;
+  status.classList.toggle("hidden", !message);
+}
+
+function showCameraLayer(show) {
+  camera.classList.toggle("hidden", !show);
+  handOverlay.classList.toggle("hidden", !show);
+  cameraTint.classList.toggle("hidden", !show);
+  stage.classList.toggle("camera-mode", show);
+}
+
+function sizeOverlay() {
+  handOverlay.width = stage.clientWidth;
+  handOverlay.height = stage.clientHeight;
+}
+
+function drawHand(hand) {
+  const context = handOverlay.getContext("2d");
+  sizeOverlay();
+  context.clearRect(0, 0, handOverlay.width, handOverlay.height);
+  if (!hand) {
+    return;
+  }
+  context.fillStyle = "rgba(255, 215, 76, 0.95)";
+  context.strokeStyle = "rgba(255, 245, 177, 0.72)";
+  context.lineWidth = 3;
+  hand.forEach((point) => {
+    const x = point.x * handOverlay.width;
+    const y = point.y * handOverlay.height;
+    context.beginPath();
+    context.arc(x, y, 5, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  });
+}
+
 function placeTarget() {
   const nextPosition = positions[collected % positions.length];
   targetGem.style.left = `${nextPosition.x}%`;
@@ -66,30 +105,24 @@ function placeTarget() {
 function updatePointer(x, y, tracking = true) {
   wandPointer.style.left = `${x}px`;
   wandPointer.style.top = `${y}px`;
-
   if (!tracking || targetLocked || targetGem.classList.contains("hidden")) {
     clearHold();
     return;
   }
-
   const targetRect = targetGem.getBoundingClientRect();
   const stageRect = stage.getBoundingClientRect();
   const centerX = targetRect.left - stageRect.left + targetRect.width / 2;
   const centerY = targetRect.top - stageRect.top + targetRect.height / 2;
   const distance = Math.hypot(centerX - x, centerY - y);
-  const inside = distance < targetRect.width * 0.45;
-
-  if (!inside) {
+  if (distance >= targetRect.width * 0.45) {
     clearHold();
     return;
   }
-
   if (!holdStart) {
     holdStart = performance.now();
     targetGem.classList.add("collecting");
     guide.textContent = "좋아요! 그대로 기다려요";
   }
-
   const progress = Math.min((performance.now() - holdStart) / HOLD_DURATION, 1);
   targetGem.style.setProperty("--hold", `${progress * 100}`);
   if (progress >= 1) {
@@ -110,7 +143,6 @@ function collectGem() {
   if (targetLocked) {
     return;
   }
-
   targetLocked = true;
   clearHold();
   burstAtTarget();
@@ -119,13 +151,11 @@ function collectGem() {
   collected += 1;
   score.textContent = `${collected} / ${TOTAL_GEMS}`;
   targetGem.classList.add("hidden");
-
   if (collected === TOTAL_GEMS) {
     guide.textContent = "왕관이 완성됐어요!";
     window.setTimeout(() => celebration.classList.remove("hidden"), 550);
     return;
   }
-
   guide.textContent = "짜잔! 새로운 보석을 찾아요";
   window.setTimeout(() => {
     targetLocked = false;
@@ -139,7 +169,6 @@ function burstAtTarget() {
   const stageRect = stage.getBoundingClientRect();
   const x = targetRect.left - stageRect.left + targetRect.width / 2;
   const y = targetRect.top - stageRect.top + targetRect.height / 2;
-
   for (let index = 0; index < 9; index += 1) {
     const sparkle = document.createElement("span");
     sparkle.className = "spark";
@@ -162,7 +191,6 @@ stage.addEventListener("pointermove", (event) => {
     moveFromScreenPoint(event.clientX, event.clientY);
   }
 });
-
 stage.addEventListener("pointerdown", (event) => {
   if (mode === "demo") {
     moveFromScreenPoint(event.clientX, event.clientY);
@@ -170,14 +198,16 @@ stage.addEventListener("pointerdown", (event) => {
 });
 
 async function createHandLandmarker() {
+  if (!window.vision?.FilesetResolver || !window.vision?.HandLandmarker) {
+    throw new Error("손 인식 프로그램을 불러오지 못했습니다.");
+  }
   const { FilesetResolver, HandLandmarker } = window.vision;
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
+  const visionFiles = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
   );
   const options = {
     baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
       delegate: "GPU",
     },
     runningMode: "VIDEO",
@@ -186,18 +216,17 @@ async function createHandLandmarker() {
     minHandPresenceConfidence: 0.45,
     minTrackingConfidence: 0.45,
   };
-
   try {
-    return await HandLandmarker.createFromOptions(vision, options);
+    return await HandLandmarker.createFromOptions(visionFiles, options);
   } catch (_error) {
     options.baseOptions.delegate = "CPU";
-    return HandLandmarker.createFromOptions(vision, options);
+    return HandLandmarker.createFromOptions(visionFiles, options);
   }
 }
 
 function timeoutAfter(milliseconds) {
   return new Promise((_, reject) => {
-    window.setTimeout(() => reject(new Error("Hand tracker timed out")), milliseconds);
+    window.setTimeout(() => reject(new Error("손 인식 준비 시간이 너무 오래 걸렸습니다.")), milliseconds);
   });
 }
 
@@ -205,41 +234,36 @@ async function activateCamera() {
   startCamera.disabled = true;
   startCamera.textContent = "카메라를 준비하고 있어요...";
   parentNote.textContent = "카메라 사용 허용 창이 나오면 허용을 눌러 주세요.";
-
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: "user",
-        width: { ideal: 960 },
-        height: { ideal: 540 },
-      },
+      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false,
     });
     camera.srcObject = stream;
-    cameraPreview.classList.remove("hidden");
+    showCameraLayer(true);
     togglePreview.classList.remove("hidden");
-    togglePreview.textContent = "카메라 숨기기";
+    togglePreview.textContent = "내 모습 숨기기";
     beginGame("camera");
-    guide.textContent = "카메라가 켜졌어요. 마법을 준비하고 있어요...";
-    camera.play().catch(() => {});
+    guide.textContent = "내 모습이 보여요! 마법을 준비하고 있어요...";
+    setStatus("손 인식 준비 중...");
+    await camera.play();
     handLandmarker = await Promise.race([createHandLandmarker(), timeoutAfter(25000)]);
     trackerReady = true;
+    setStatus("");
     guide.textContent = "손을 보석 위에 천천히 올려주세요";
     detectHands();
   } catch (error) {
     console.error(error);
     trackerReady = false;
-    stream?.getTracks().forEach((track) => track.stop());
-    stream = null;
-    cameraPreview.classList.add("hidden");
-    togglePreview.classList.add("hidden");
-
     if (mode === "camera") {
-      guide.textContent = "손 인식을 준비하지 못했어요. 화면 체험으로 놀아볼까요?";
+      guide.textContent = "손 인식에 문제가 있어요. 화면을 눌러 놀 수 있어요.";
+      setStatus(`확인용 오류: ${error?.message || "손 인식 준비 실패"}`);
       mode = "demo";
     } else {
-      parentNote.textContent =
-        "카메라를 열지 못했어요. 카메라를 허용하거나, 화면 체험으로 먼저 놀아보세요.";
+      stream?.getTracks().forEach((track) => track.stop());
+      stream = null;
+      showCameraLayer(false);
+      parentNote.textContent = "카메라를 열지 못했어요. 카메라를 허용하거나, 화면 체험으로 먼저 놀아보세요.";
       startCamera.disabled = false;
       startCamera.textContent = "손으로 시작하기";
     }
@@ -250,23 +274,19 @@ function detectHands() {
   if (mode !== "camera" || !trackerReady || !handLandmarker) {
     return;
   }
-
   if (camera.readyState >= 2 && camera.currentTime !== lastVideoTime) {
     lastVideoTime = camera.currentTime;
     const result = handLandmarker.detectForVideo(camera, performance.now());
     const hand = result.landmarks?.[0];
-
+    drawHand(hand);
     if (hand) {
       const palmCenter = hand[9];
       const bounds = stage.getBoundingClientRect();
-      const x = (1 - palmCenter.x) * bounds.width;
-      const y = palmCenter.y * bounds.height;
-      updatePointer(x, y);
+      updatePointer((1 - palmCenter.x) * bounds.width, palmCenter.y * bounds.height);
     } else {
       clearHold();
     }
   }
-
   animationId = requestAnimationFrame(detectHands);
 }
 
@@ -275,15 +295,11 @@ function startDemoGame() {
   beginGame("demo");
   guide.textContent = "손가락으로 별빛을 움직여 보석을 모아보세요";
 }
-
-function restartCurrentGame() {
-  resetGame();
-}
-
+function restartCurrentGame() { resetGame(); }
 function toggleCameraPreview() {
-  const previewShown = !cameraPreview.classList.contains("hidden");
-  cameraPreview.classList.toggle("hidden", previewShown);
-  togglePreview.textContent = previewShown ? "카메라 보기" : "카메라 숨기기";
+  const shown = !camera.classList.contains("hidden");
+  showCameraLayer(!shown);
+  togglePreview.textContent = shown ? "내 모습 보기" : "내 모습 숨기기";
 }
 
 startCamera.addEventListener("click", activateCamera);
@@ -291,10 +307,8 @@ startDemo.addEventListener("click", startDemoGame);
 restart.addEventListener("click", restartCurrentGame);
 playAgain.addEventListener("click", restartCurrentGame);
 togglePreview.addEventListener("click", toggleCameraPreview);
-
+window.addEventListener("resize", sizeOverlay);
 window.addEventListener("beforeunload", () => {
-  if (animationId) {
-    cancelAnimationFrame(animationId);
-  }
+  if (animationId) { cancelAnimationFrame(animationId); }
   stream?.getTracks().forEach((track) => track.stop());
 });
