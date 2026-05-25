@@ -33,6 +33,7 @@ let animationId = null;
 let lastVideoTime = -1;
 let holdStart = null;
 let targetLocked = false;
+let trackerReady = false;
 
 function resetGame() {
   collected = 0;
@@ -194,6 +195,12 @@ async function createGestureRecognizer() {
   }
 }
 
+function timeoutAfter(milliseconds) {
+  return new Promise((_, reject) => {
+    window.setTimeout(() => reject(new Error("Hand tracker timed out")), milliseconds);
+  });
+}
+
 async function activateCamera() {
   startCamera.disabled = true;
   startCamera.textContent = "카메라를 준비하고 있어요...";
@@ -209,22 +216,38 @@ async function activateCamera() {
       audio: false,
     });
     camera.srcObject = stream;
-    await camera.play();
-    gestureRecognizer = await createGestureRecognizer();
+    cameraPreview.classList.remove("hidden");
     togglePreview.classList.remove("hidden");
+    togglePreview.textContent = "카메라 숨기기";
     beginGame("camera");
+    guide.textContent = "카메라가 켜졌어요. 마법을 준비하고 있어요...";
+    camera.play().catch(() => {});
+    gestureRecognizer = await Promise.race([createGestureRecognizer(), timeoutAfter(15000)]);
+    trackerReady = true;
+    guide.textContent = "손을 보석 위에 천천히 올려주세요";
     detectHands();
   } catch (error) {
     console.error(error);
-    parentNote.textContent =
-      "카메라를 열지 못했어요. 안전한 웹 주소에서 카메라를 허용하거나, 화면 체험으로 먼저 놀아보세요.";
-    startCamera.disabled = false;
-    startCamera.textContent = "손으로 시작하기";
+    trackerReady = false;
+    stream?.getTracks().forEach((track) => track.stop());
+    stream = null;
+    cameraPreview.classList.add("hidden");
+    togglePreview.classList.add("hidden");
+
+    if (mode === "camera") {
+      guide.textContent = "손 인식을 준비하지 못했어요. 화면 체험으로 놀아볼까요?";
+      mode = "demo";
+    } else {
+      parentNote.textContent =
+        "카메라를 열지 못했어요. 카메라를 허용하거나, 화면 체험으로 먼저 놀아보세요.";
+      startCamera.disabled = false;
+      startCamera.textContent = "손으로 시작하기";
+    }
   }
 }
 
 function detectHands() {
-  if (mode !== "camera" || !gestureRecognizer) {
+  if (mode !== "camera" || !trackerReady || !gestureRecognizer) {
     return;
   }
 
@@ -248,6 +271,7 @@ function detectHands() {
 }
 
 function startDemoGame() {
+  trackerReady = false;
   beginGame("demo");
   guide.textContent = "손가락으로 별빛을 움직여 보석을 모아보세요";
 }
