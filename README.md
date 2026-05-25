@@ -19,5 +19,5 @@ Galaxy Tab S7의 전면 카메라와 손 움직임으로 플레이하는 어린�
 ## 사용 기술
 
 - HTML/CSS/JavaScript 단일 화면 웹 앱
-- MediaPipe Gesture Recognizer (`@mediapipe/tasks-vision`) 손 위치 인식
+- MediaPipe Hand Landmarker (`@mediapipe/tasks-vision`) 손 위치 인식
 - 카메라 영상은 브라우저 안에서만 처리하며 저장하거나 업로드하지 않습니다.
