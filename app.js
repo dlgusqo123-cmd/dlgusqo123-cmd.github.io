@@ -80,9 +80,7 @@ function drawHand(hand) {
   const context = handOverlay.getContext("2d");
   sizeOverlay();
   context.clearRect(0, 0, handOverlay.width, handOverlay.height);
-  if (!hand) {
-    return;
-  }
+  if (!hand) return;
   context.fillStyle = "rgba(255, 215, 76, 0.95)";
   context.strokeStyle = "rgba(255, 245, 177, 0.72)";
   context.lineWidth = 3;
@@ -113,8 +111,7 @@ function updatePointer(x, y, tracking = true) {
   const stageRect = stage.getBoundingClientRect();
   const centerX = targetRect.left - stageRect.left + targetRect.width / 2;
   const centerY = targetRect.top - stageRect.top + targetRect.height / 2;
-  const distance = Math.hypot(centerX - x, centerY - y);
-  if (distance >= targetRect.width * 0.45) {
+  if (Math.hypot(centerX - x, centerY - y) >= targetRect.width * 0.45) {
     clearHold();
     return;
   }
@@ -125,9 +122,7 @@ function updatePointer(x, y, tracking = true) {
   }
   const progress = Math.min((performance.now() - holdStart) / HOLD_DURATION, 1);
   targetGem.style.setProperty("--hold", `${progress * 100}`);
-  if (progress >= 1) {
-    collectGem();
-  }
+  if (progress >= 1) collectGem();
 }
 
 function clearHold() {
@@ -140,9 +135,7 @@ function clearHold() {
 }
 
 function collectGem() {
-  if (targetLocked) {
-    return;
-  }
+  if (targetLocked) return;
   targetLocked = true;
   clearHold();
   burstAtTarget();
@@ -186,23 +179,14 @@ function moveFromScreenPoint(clientX, clientY) {
   updatePointer(clientX - bounds.left, clientY - bounds.top);
 }
 
-stage.addEventListener("pointermove", (event) => {
-  if (mode === "demo") {
-    moveFromScreenPoint(event.clientX, event.clientY);
-  }
-});
-stage.addEventListener("pointerdown", (event) => {
-  if (mode === "demo") {
-    moveFromScreenPoint(event.clientX, event.clientY);
-  }
-});
+stage.addEventListener("pointermove", (event) => { if (mode === "demo") moveFromScreenPoint(event.clientX, event.clientY); });
+stage.addEventListener("pointerdown", (event) => { if (mode === "demo") moveFromScreenPoint(event.clientX, event.clientY); });
 
 async function createHandLandmarker() {
-  if (!window.vision?.FilesetResolver || !window.vision?.HandLandmarker) {
-    throw new Error("손 인식 프로그램을 불러오지 못했습니다.");
-  }
-  const { FilesetResolver, HandLandmarker } = window.vision;
-  const visionFiles = await FilesetResolver.forVisionTasks(
+  const { FilesetResolver, HandLandmarker } = await import(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs"
+  );
+  const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
   );
   const options = {
@@ -217,17 +201,15 @@ async function createHandLandmarker() {
     minTrackingConfidence: 0.45,
   };
   try {
-    return await HandLandmarker.createFromOptions(visionFiles, options);
+    return await HandLandmarker.createFromOptions(vision, options);
   } catch (_error) {
     options.baseOptions.delegate = "CPU";
-    return HandLandmarker.createFromOptions(visionFiles, options);
+    return HandLandmarker.createFromOptions(vision, options);
   }
 }
 
 function timeoutAfter(milliseconds) {
-  return new Promise((_, reject) => {
-    window.setTimeout(() => reject(new Error("손 인식 준비 시간이 너무 오래 걸렸습니다.")), milliseconds);
-  });
+  return new Promise((_, reject) => window.setTimeout(() => reject(new Error("손 인식 준비 시간이 너무 오래 걸렸습니다.")), milliseconds));
 }
 
 async function activateCamera() {
@@ -236,8 +218,7 @@ async function activateCamera() {
   parentNote.textContent = "카메라 사용 허용 창이 나오면 허용을 눌러 주세요.";
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false,
+      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
     });
     camera.srcObject = stream;
     showCameraLayer(true);
@@ -271,9 +252,7 @@ async function activateCamera() {
 }
 
 function detectHands() {
-  if (mode !== "camera" || !trackerReady || !handLandmarker) {
-    return;
-  }
+  if (mode !== "camera" || !trackerReady || !handLandmarker) return;
   if (camera.readyState >= 2 && camera.currentTime !== lastVideoTime) {
     lastVideoTime = camera.currentTime;
     const result = handLandmarker.detectForVideo(camera, performance.now());
@@ -290,11 +269,7 @@ function detectHands() {
   animationId = requestAnimationFrame(detectHands);
 }
 
-function startDemoGame() {
-  trackerReady = false;
-  beginGame("demo");
-  guide.textContent = "손가락으로 별빛을 움직여 보석을 모아보세요";
-}
+function startDemoGame() { trackerReady = false; beginGame("demo"); guide.textContent = "손가락으로 별빛을 움직여 보석을 모아보세요"; }
 function restartCurrentGame() { resetGame(); }
 function toggleCameraPreview() {
   const shown = !camera.classList.contains("hidden");
@@ -309,6 +284,6 @@ playAgain.addEventListener("click", restartCurrentGame);
 togglePreview.addEventListener("click", toggleCameraPreview);
 window.addEventListener("resize", sizeOverlay);
 window.addEventListener("beforeunload", () => {
-  if (animationId) { cancelAnimationFrame(animationId); }
+  if (animationId) cancelAnimationFrame(animationId);
   stream?.getTracks().forEach((track) => track.stop());
 });
