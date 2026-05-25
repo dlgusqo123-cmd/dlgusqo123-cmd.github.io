@@ -28,7 +28,7 @@ const playAgain = document.querySelector("#playAgain");
 let collected = 0;
 let mode = "idle";
 let stream = null;
-let gestureRecognizer = null;
+let handLandmarker = null;
 let animationId = null;
 let lastVideoTime = -1;
 let holdStart = null;
@@ -169,15 +169,15 @@ stage.addEventListener("pointerdown", (event) => {
   }
 });
 
-async function createGestureRecognizer() {
-  const { FilesetResolver, GestureRecognizer } = window.vision;
+async function createHandLandmarker() {
+  const { FilesetResolver, HandLandmarker } = window.vision;
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
   );
   const options = {
     baseOptions: {
       modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
       delegate: "GPU",
     },
     runningMode: "VIDEO",
@@ -188,10 +188,10 @@ async function createGestureRecognizer() {
   };
 
   try {
-    return await GestureRecognizer.createFromOptions(vision, options);
+    return await HandLandmarker.createFromOptions(vision, options);
   } catch (_error) {
     options.baseOptions.delegate = "CPU";
-    return GestureRecognizer.createFromOptions(vision, options);
+    return HandLandmarker.createFromOptions(vision, options);
   }
 }
 
@@ -222,7 +222,7 @@ async function activateCamera() {
     beginGame("camera");
     guide.textContent = "카메라가 켜졌어요. 마법을 준비하고 있어요...";
     camera.play().catch(() => {});
-    gestureRecognizer = await Promise.race([createGestureRecognizer(), timeoutAfter(15000)]);
+    handLandmarker = await Promise.race([createHandLandmarker(), timeoutAfter(25000)]);
     trackerReady = true;
     guide.textContent = "손을 보석 위에 천천히 올려주세요";
     detectHands();
@@ -247,13 +247,13 @@ async function activateCamera() {
 }
 
 function detectHands() {
-  if (mode !== "camera" || !trackerReady || !gestureRecognizer) {
+  if (mode !== "camera" || !trackerReady || !handLandmarker) {
     return;
   }
 
   if (camera.readyState >= 2 && camera.currentTime !== lastVideoTime) {
     lastVideoTime = camera.currentTime;
-    const result = gestureRecognizer.recognizeForVideo(camera, performance.now());
+    const result = handLandmarker.detectForVideo(camera, performance.now());
     const hand = result.landmarks?.[0];
 
     if (hand) {
