@@ -24,6 +24,7 @@
           <strong id="score">0 / 3</strong>
         </div>
       </header>
+
       <section class="stage" id="stage" aria-label="마법 놀이 화면">
         <video class="stage-camera hidden" id="camera" autoplay muted playsinline></video>
         <canvas class="hand-overlay hidden" id="handOverlay" aria-hidden="true"></canvas>
@@ -32,38 +33,63 @@
         <div class="cloud cloud-left"></div>
         <div class="cloud cloud-right"></div>
         <div class="sparkles" id="sparkles" aria-hidden="true"></div>
+
         <div class="castle" aria-hidden="true">
           <div class="tower tower-left"><span></span></div>
-          <div class="palace"><div class="window window-left"></div><div class="window window-right"></div><div class="door"></div></div>
+          <div class="palace">
+            <div class="window window-left"></div>
+            <div class="window window-right"></div>
+            <div class="door"></div>
+          </div>
           <div class="tower tower-right"><span></span></div>
         </div>
+
         <div class="crown-board" id="crownBoard" aria-hidden="true">
-          <div class="crown"><i class="crown-gem crown-gem-1"></i><i class="crown-gem crown-gem-2"></i><i class="crown-gem crown-gem-3"></i></div>
+          <div class="crown">
+            <i class="crown-gem crown-gem-1"></i>
+            <i class="crown-gem crown-gem-2"></i>
+            <i class="crown-gem crown-gem-3"></i>
+          </div>
           <p>공주님의 왕관</p>
         </div>
+
         <button class="target-gem hidden" id="targetGem" type="button" aria-label="마법 보석">
-          <span class="hold-ring"></span><span class="gem-heart">♥</span><span class="target-label">손을 올려요</span>
+          <span class="hold-ring"></span>
+          <span class="gem-heart">♥</span>
+          <span class="target-label">손을 올려요</span>
         </button>
-        <div class="wand-pointer hidden" id="wandPointer" aria-hidden="true"><span>✦</span></div>
+
+        <div class="wand-pointer hidden" id="wandPointer" aria-hidden="true">
+          <span>✦</span>
+        </div>
+
         <p class="guide" id="guide">마법 놀이를 시작해 볼까요?</p>
         <p class="status hidden" id="status" aria-live="polite"></p>
       </section>
+
       <div class="parent-tools">
         <button class="text-button hidden" id="togglePreview" type="button">카메라 보기</button>
         <button class="text-button hidden" id="restart" type="button">처음부터</button>
       </div>
     </main>
+
     <section class="welcome" id="welcome">
       <div class="welcome-card">
         <div class="fairy-mark" aria-hidden="true">♥</div>
         <p class="welcome-kicker">공주님을 위한 마법 놀이</p>
         <h2>하트 요정의<br>보석 왕관</h2>
-        <p class="welcome-copy">손을 천천히 움직여<br>반짝이는 보석 3개를 모아 주세요.</p>
+        <p class="welcome-copy">
+          손을 천천히 움직여<br>
+          반짝이는 보석 3개를 모아 주세요.
+        </p>
         <button class="primary-button" id="startCamera" type="button">손으로 시작하기</button>
         <button class="secondary-button" id="startDemo" type="button">화면으로 먼저 체험하기</button>
-        <p class="parent-note" id="parentNote">부모님: 카메라는 기기 안에서 손의 위치를 찾는 데만 사용합니다.</p>
+        <p class="parent-note" id="parentNote">
+          부모님: 카메라는 기기 안에서 손의 위치를 찾는 데만 사용합니다.
+        </p>
       </div>
     </section>
+
     <section class="celebration hidden" id="celebration" aria-live="polite">
       <div class="celebration-card">
         <p class="celebration-stars">✦ ♥ ✦</p>
@@ -72,6 +98,7 @@
         <button class="primary-button" id="playAgain" type="button">한 번 더</button>
       </div>
     </section>
-    <script type="module" src="./app.js?v=5"></script>
+
+    <script type="module" src="./app.js?v=6"></script>
   </body>
 </html>
