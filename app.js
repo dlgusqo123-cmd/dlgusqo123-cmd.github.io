@@ -31,11 +31,14 @@ let collected = 0;
 let mode = "idle";
 let stream = null;
 let handLandmarker = null;
+let legacyHands = null;
+let trackingEngine = "";
 let animationId = null;
 let lastVideoTime = -1;
 let holdStart = null;
 let targetLocked = false;
 let trackerReady = false;
+let framePending = false;
 
 function resetGame() {
   collected = 0;
@@ -80,7 +83,10 @@ function drawHand(hand) {
   const context = handOverlay.getContext("2d");
   sizeOverlay();
   context.clearRect(0, 0, handOverlay.width, handOverlay.height);
-  if (!hand) return;
+  if (!hand) {
+    return;
+  }
+
   context.fillStyle = "rgba(255, 215, 76, 0.95)";
   context.strokeStyle = "rgba(255, 245, 177, 0.72)";
   context.lineWidth = 3;
@@ -103,26 +109,35 @@ function placeTarget() {
 function updatePointer(x, y, tracking = true) {
   wandPointer.style.left = `${x}px`;
   wandPointer.style.top = `${y}px`;
+
   if (!tracking || targetLocked || targetGem.classList.contains("hidden")) {
     clearHold();
     return;
   }
+
   const targetRect = targetGem.getBoundingClientRect();
   const stageRect = stage.getBoundingClientRect();
   const centerX = targetRect.left - stageRect.left + targetRect.width / 2;
   const centerY = targetRect.top - stageRect.top + targetRect.height / 2;
-  if (Math.hypot(centerX - x, centerY - y) >= targetRect.width * 0.45) {
+  const distance = Math.hypot(centerX - x, centerY - y);
+  const inside = distance < targetRect.width * 0.45;
+
+  if (!inside) {
     clearHold();
     return;
   }
+
   if (!holdStart) {
     holdStart = performance.now();
     targetGem.classList.add("collecting");
     guide.textContent = "좋아요! 그대로 기다려요";
   }
+
   const progress = Math.min((performance.now() - holdStart) / HOLD_DURATION, 1);
   targetGem.style.setProperty("--hold", `${progress * 100}`);
-  if (progress >= 1) collectGem();
+  if (progress >= 1) {
+    collectGem();
+  }
 }
 
 function clearHold() {
@@ -135,7 +150,10 @@ function clearHold() {
 }
 
 function collectGem() {
-  if (targetLocked) return;
+  if (targetLocked) {
+    return;
+  }
+
   targetLocked = true;
   clearHold();
   burstAtTarget();
@@ -144,11 +162,13 @@ function collectGem() {
   collected += 1;
   score.textContent = `${collected} / ${TOTAL_GEMS}`;
   targetGem.classList.add("hidden");
+
   if (collected === TOTAL_GEMS) {
     guide.textContent = "왕관이 완성됐어요!";
     window.setTimeout(() => celebration.classList.remove("hidden"), 550);
     return;
   }
+
   guide.textContent = "짜잔! 새로운 보석을 찾아요";
   window.setTimeout(() => {
     targetLocked = false;
@@ -162,6 +182,7 @@ function burstAtTarget() {
   const stageRect = stage.getBoundingClientRect();
   const x = targetRect.left - stageRect.left + targetRect.width / 2;
   const y = targetRect.top - stageRect.top + targetRect.height / 2;
+
   for (let index = 0; index < 9; index += 1) {
     const sparkle = document.createElement("span");
     sparkle.className = "spark";
@@ -179,8 +200,17 @@ function moveFromScreenPoint(clientX, clientY) {
   updatePointer(clientX - bounds.left, clientY - bounds.top);
 }
 
-stage.addEventListener("pointermove", (event) => { if (mode === "demo") moveFromScreenPoint(event.clientX, event.clientY); });
-stage.addEventListener("pointerdown", (event) => { if (mode === "demo") moveFromScreenPoint(event.clientX, event.clientY); });
+stage.addEventListener("pointermove", (event) => {
+  if (mode === "demo") {
+    moveFromScreenPoint(event.clientX, event.clientY);
+  }
+});
+
+stage.addEventListener("pointerdown", (event) => {
+  if (mode === "demo") {
+    moveFromScreenPoint(event.clientX, event.clientY);
+  }
+});
 
 async function createHandLandmarker() {
   const { FilesetResolver, HandLandmarker } = await import(
@@ -191,7 +221,8 @@ async function createHandLandmarker() {
   );
   const options = {
     baseOptions: {
-      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
       delegate: "GPU",
     },
     runningMode: "VIDEO",
@@ -200,6 +231,7 @@ async function createHandLandmarker() {
     minHandPresenceConfidence: 0.45,
     minTrackingConfidence: 0.45,
   };
+
   try {
     return await HandLandmarker.createFromOptions(vision, options);
   } catch (_error) {
@@ -208,17 +240,78 @@ async function createHandLandmarker() {
   }
 }
 
+function loadScript(source) {
+  return new Promise((resolve, reject) => {
+    const previous = document.querySelector(`script[src="${source}"]`);
+    if (previous) {
+      if (window.Hands) {
+        resolve();
+        return;
+      }
+      previous.addEventListener("load", resolve, { once: true });
+      previous.addEventListener("error", reject, { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = source;
+    script.crossOrigin = "anonymous";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("태블릿 호환 손 인식 파일을 불러오지 못했습니다."));
+    document.head.append(script);
+  });
+}
+
+function handleDetectedHand(hand) {
+  drawHand(hand);
+  if (hand) {
+    const palmCenter = hand[9];
+    const bounds = stage.getBoundingClientRect();
+    updatePointer((1 - palmCenter.x) * bounds.width, palmCenter.y * bounds.height);
+  } else {
+    clearHold();
+  }
+}
+
+async function createLegacyHands() {
+  await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js");
+  if (!window.Hands) {
+    throw new Error("태블릿 호환 손 인식을 시작하지 못했습니다.");
+  }
+  const tracker = new window.Hands({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+  });
+  tracker.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 0,
+    minDetectionConfidence: 0.45,
+    minTrackingConfidence: 0.45,
+  });
+  tracker.onResults((results) => handleDetectedHand(results.multiHandLandmarks?.[0]));
+  if (typeof tracker.initialize === "function") {
+    await tracker.initialize();
+  }
+  return tracker;
+}
+
 function timeoutAfter(milliseconds) {
-  return new Promise((_, reject) => window.setTimeout(() => reject(new Error("손 인식 준비 시간이 너무 오래 걸렸습니다.")), milliseconds));
+  return new Promise((_, reject) => {
+    window.setTimeout(() => reject(new Error("손 인식 준비 시간이 너무 오래 걸렸습니다.")), milliseconds);
+  });
 }
 
 async function activateCamera() {
   startCamera.disabled = true;
   startCamera.textContent = "카메라를 준비하고 있어요...";
   parentNote.textContent = "카메라 사용 허용 창이 나오면 허용을 눌러 주세요.";
+
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+      video: {
+        facingMode: "user",
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
     });
     camera.srcObject = stream;
     showCameraLayer(true);
@@ -228,7 +321,20 @@ async function activateCamera() {
     guide.textContent = "내 모습이 보여요! 마법을 준비하고 있어요...";
     setStatus("손 인식 준비 중...");
     await camera.play();
-    handLandmarker = await Promise.race([createHandLandmarker(), timeoutAfter(25000)]);
+    if (/Android/i.test(navigator.userAgent)) {
+      setStatus("태블릿 호환 손 인식 준비 중...");
+      legacyHands = await Promise.race([createLegacyHands(), timeoutAfter(25000)]);
+      trackingEngine = "legacy";
+    } else {
+      try {
+        handLandmarker = await Promise.race([createHandLandmarker(), timeoutAfter(25000)]);
+        trackingEngine = "tasks";
+      } catch (_error) {
+        setStatus("호환 손 인식으로 다시 준비 중...");
+        legacyHands = await Promise.race([createLegacyHands(), timeoutAfter(25000)]);
+        trackingEngine = "legacy";
+      }
+    }
     trackerReady = true;
     setStatus("");
     guide.textContent = "손을 보석 위에 천천히 올려주세요";
@@ -236,6 +342,7 @@ async function activateCamera() {
   } catch (error) {
     console.error(error);
     trackerReady = false;
+
     if (mode === "camera") {
       guide.textContent = "손 인식에 문제가 있어요. 화면을 눌러 놀 수 있어요.";
       setStatus(`확인용 오류: ${error?.message || "손 인식 준비 실패"}`);
@@ -244,33 +351,49 @@ async function activateCamera() {
       stream?.getTracks().forEach((track) => track.stop());
       stream = null;
       showCameraLayer(false);
-      parentNote.textContent = "카메라를 열지 못했어요. 카메라를 허용하거나, 화면 체험으로 먼저 놀아보세요.";
+      parentNote.textContent =
+        "카메라를 열지 못했어요. 카메라를 허용하거나, 화면 체험으로 먼저 놀아보세요.";
       startCamera.disabled = false;
       startCamera.textContent = "손으로 시작하기";
     }
   }
 }
 
-function detectHands() {
-  if (mode !== "camera" || !trackerReady || !handLandmarker) return;
+async function detectHands() {
+  if (mode !== "camera" || !trackerReady) {
+    return;
+  }
+
   if (camera.readyState >= 2 && camera.currentTime !== lastVideoTime) {
     lastVideoTime = camera.currentTime;
-    const result = handLandmarker.detectForVideo(camera, performance.now());
-    const hand = result.landmarks?.[0];
-    drawHand(hand);
-    if (hand) {
-      const palmCenter = hand[9];
-      const bounds = stage.getBoundingClientRect();
-      updatePointer((1 - palmCenter.x) * bounds.width, palmCenter.y * bounds.height);
-    } else {
-      clearHold();
+    if (trackingEngine === "legacy" && legacyHands && !framePending) {
+      framePending = true;
+      try {
+        await legacyHands.send({ image: camera });
+      } catch (error) {
+        setStatus(`확인용 오류: ${error?.message || "태블릿 손 인식 실행 실패"}`);
+      } finally {
+        framePending = false;
+      }
+    } else if (trackingEngine === "tasks" && handLandmarker) {
+      const result = handLandmarker.detectForVideo(camera, performance.now());
+      handleDetectedHand(result.landmarks?.[0]);
     }
   }
+
   animationId = requestAnimationFrame(detectHands);
 }
 
-function startDemoGame() { trackerReady = false; beginGame("demo"); guide.textContent = "손가락으로 별빛을 움직여 보석을 모아보세요"; }
-function restartCurrentGame() { resetGame(); }
+function startDemoGame() {
+  trackerReady = false;
+  beginGame("demo");
+  guide.textContent = "손가락으로 별빛을 움직여 보석을 모아보세요";
+}
+
+function restartCurrentGame() {
+  resetGame();
+}
+
 function toggleCameraPreview() {
   const shown = !camera.classList.contains("hidden");
   showCameraLayer(!shown);
@@ -282,8 +405,11 @@ startDemo.addEventListener("click", startDemoGame);
 restart.addEventListener("click", restartCurrentGame);
 playAgain.addEventListener("click", restartCurrentGame);
 togglePreview.addEventListener("click", toggleCameraPreview);
+
 window.addEventListener("resize", sizeOverlay);
 window.addEventListener("beforeunload", () => {
-  if (animationId) cancelAnimationFrame(animationId);
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+  }
   stream?.getTracks().forEach((track) => track.stop());
 });
