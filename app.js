@@ -1,10 +1,7 @@
 const TOTAL_GEMS = 3;
-const HOLD_DURATION = 1000;
-const positions = [
-  { x: 25, y: 40 },
-  { x: 74, y: 37 },
-  { x: 47, y: 51 },
-];
+const STAR_RADIUS = 78;
+const GRAB_HOLD = 180;
+const STAR_SPEED = 38;
 
 const stage = document.querySelector("#stage");
 const welcome = document.querySelector("#welcome");
@@ -14,7 +11,9 @@ const wandPointer = document.querySelector("#wandPointer");
 const guide = document.querySelector("#guide");
 const score = document.querySelector("#score");
 const gemSlots = [...document.querySelectorAll(".slot")];
-const crownGems = [...document.querySelectorAll(".crown-gem")];
+const crownBoard = document.querySelector("#crownBoard");
+const headCrown = document.querySelector("#headCrown");
+const crownGems = [...crownBoard.querySelectorAll(".crown-gem")];
 const sparkles = document.querySelector("#sparkles");
 const camera = document.querySelector("#camera");
 const handOverlay = document.querySelector("#handOverlay");
@@ -35,23 +34,33 @@ let legacyHands = null;
 let trackingEngine = "";
 let animationId = null;
 let lastVideoTime = -1;
-let holdStart = null;
+let grabStart = null;
 let targetLocked = false;
 let trackerReady = false;
 let framePending = false;
+let lastMoveTime = 0;
+const star = {
+  x: 0,
+  y: 0,
+  vx: STAR_SPEED,
+  vy: STAR_SPEED * 0.62,
+};
 
 function resetGame() {
   collected = 0;
   targetLocked = false;
-  holdStart = null;
+  grabStart = null;
+  lastMoveTime = 0;
   score.textContent = `0 / ${TOTAL_GEMS}`;
   gemSlots.forEach((slot) => slot.classList.remove("filled"));
   crownGems.forEach((gem) => gem.classList.remove("filled"));
+  headCrown.classList.add("hidden");
+  crownBoard.classList.add("hidden");
   celebration.classList.add("hidden");
-  targetGem.classList.remove("hidden", "collecting");
+  targetGem.classList.remove("hidden", "collecting", "caught");
   targetGem.style.setProperty("--hold", "0");
-  placeTarget();
-  guide.textContent = mode === "camera" ? "손을 보석 위에 천천히 올려주세요" : "별빛을 움직여 보석을 모아주세요";
+  placeTarget(true);
+  guide.textContent = mode === "camera" ? "손을 오므려 별을 잡아주세요" : "별을 톡 눌러 잡아주세요";
 }
 
 function beginGame(nextMode) {
@@ -60,6 +69,10 @@ function beginGame(nextMode) {
   restart.classList.remove("hidden");
   wandPointer.classList.remove("hidden");
   resetGame();
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+  }
+  animationId = requestAnimationFrame(detectHands);
 }
 
 function setStatus(message) {
@@ -100,18 +113,63 @@ function drawHand(hand) {
   });
 }
 
-function placeTarget() {
-  const nextPosition = positions[collected % positions.length];
-  targetGem.style.left = `${nextPosition.x}%`;
-  targetGem.style.top = `${nextPosition.y}%`;
+function placeTarget(resetVelocity = false) {
+  const bounds = stage.getBoundingClientRect();
+  const margin = Math.min(STAR_RADIUS, bounds.width * 0.18);
+  const usableWidth = Math.max(bounds.width - margin * 2, 1);
+  const usableHeight = Math.max(bounds.height - margin * 2, 1);
+
+  star.x = margin + usableWidth * (0.25 + Math.random() * 0.5);
+  star.y = margin + usableHeight * (0.22 + Math.random() * 0.42);
+  if (resetVelocity) {
+    star.vx = (Math.random() > 0.5 ? 1 : -1) * (STAR_SPEED * (0.72 + Math.random() * 0.35));
+    star.vy = (Math.random() > 0.5 ? 1 : -1) * (STAR_SPEED * (0.5 + Math.random() * 0.28));
+  }
+  renderTarget();
 }
 
-function updatePointer(x, y, tracking = true) {
+function renderTarget() {
+  targetGem.style.left = `${star.x}px`;
+  targetGem.style.top = `${star.y}px`;
+}
+
+function moveTarget(timestamp) {
+  if (targetLocked || targetGem.classList.contains("hidden")) {
+    lastMoveTime = timestamp;
+    return;
+  }
+
+  if (!lastMoveTime) {
+    lastMoveTime = timestamp;
+    return;
+  }
+
+  const bounds = stage.getBoundingClientRect();
+  const delta = Math.min((timestamp - lastMoveTime) / 1000, 0.05);
+  const margin = Math.min(STAR_RADIUS, bounds.width * 0.18);
+  lastMoveTime = timestamp;
+
+  star.x += star.vx * delta;
+  star.y += star.vy * delta;
+
+  if (star.x < margin || star.x > bounds.width - margin) {
+    star.vx *= -1;
+    star.x = Math.max(margin, Math.min(bounds.width - margin, star.x));
+  }
+  if (star.y < margin || star.y > bounds.height - margin) {
+    star.vy *= -1;
+    star.y = Math.max(margin, Math.min(bounds.height - margin, star.y));
+  }
+
+  renderTarget();
+}
+
+function updatePointer(x, y, tracking = true, grabbing = false) {
   wandPointer.style.left = `${x}px`;
   wandPointer.style.top = `${y}px`;
 
   if (!tracking || targetLocked || targetGem.classList.contains("hidden")) {
-    clearHold();
+    clearGrab();
     return;
   }
 
@@ -122,30 +180,30 @@ function updatePointer(x, y, tracking = true) {
   const distance = Math.hypot(centerX - x, centerY - y);
   const inside = distance < targetRect.width * 0.45;
 
-  if (!inside) {
-    clearHold();
+  if (!inside || !grabbing) {
+    clearGrab(inside);
     return;
   }
 
-  if (!holdStart) {
-    holdStart = performance.now();
+  if (!grabStart) {
+    grabStart = performance.now();
     targetGem.classList.add("collecting");
-    guide.textContent = "좋아요! 그대로 기다려요";
+    guide.textContent = "잡았다!";
   }
 
-  const progress = Math.min((performance.now() - holdStart) / HOLD_DURATION, 1);
+  const progress = Math.min((performance.now() - grabStart) / GRAB_HOLD, 1);
   targetGem.style.setProperty("--hold", `${progress * 100}`);
   if (progress >= 1) {
     collectGem();
   }
 }
 
-function clearHold() {
-  holdStart = null;
+function clearGrab(nearStar = false) {
+  grabStart = null;
   targetGem.classList.remove("collecting");
   targetGem.style.setProperty("--hold", "0");
   if (collected < TOTAL_GEMS && mode !== "idle") {
-    guide.textContent = mode === "camera" ? "손을 보석 위에 천천히 올려주세요" : "별빛을 움직여 보석을 모아주세요";
+    guide.textContent = nearStar ? "손을 오므려 잡아볼까요?" : mode === "camera" ? "움직이는 별을 천천히 따라가요" : "별을 톡 눌러 잡아주세요";
   }
 }
 
@@ -155,7 +213,8 @@ function collectGem() {
   }
 
   targetLocked = true;
-  clearHold();
+  clearGrab();
+  targetGem.classList.add("caught");
   burstAtTarget();
   gemSlots[collected].classList.add("filled");
   crownGems[collected].classList.add("filled");
@@ -164,16 +223,17 @@ function collectGem() {
   targetGem.classList.add("hidden");
 
   if (collected === TOTAL_GEMS) {
-    guide.textContent = "왕관이 완성됐어요!";
-    window.setTimeout(() => celebration.classList.remove("hidden"), 550);
+    guide.textContent = "공주 왕관이 올라갔어요!";
+    headCrown.classList.remove("hidden");
+    window.setTimeout(() => celebration.classList.remove("hidden"), 1800);
     return;
   }
 
-  guide.textContent = "짜잔! 새로운 보석을 찾아요";
+  guide.textContent = "짜잔! 새로운 별이 왔어요";
   window.setTimeout(() => {
     targetLocked = false;
-    placeTarget();
-    targetGem.classList.remove("hidden");
+    placeTarget(true);
+    targetGem.classList.remove("hidden", "caught");
   }, 650);
 }
 
@@ -195,20 +255,26 @@ function burstAtTarget() {
   }
 }
 
-function moveFromScreenPoint(clientX, clientY) {
+function moveFromScreenPoint(clientX, clientY, grabbing = false) {
   const bounds = stage.getBoundingClientRect();
-  updatePointer(clientX - bounds.left, clientY - bounds.top);
+  updatePointer(clientX - bounds.left, clientY - bounds.top, true, grabbing);
 }
 
 stage.addEventListener("pointermove", (event) => {
   if (mode === "demo") {
-    moveFromScreenPoint(event.clientX, event.clientY);
+    moveFromScreenPoint(event.clientX, event.clientY, event.buttons > 0);
   }
 });
 
 stage.addEventListener("pointerdown", (event) => {
   if (mode === "demo") {
-    moveFromScreenPoint(event.clientX, event.clientY);
+    moveFromScreenPoint(event.clientX, event.clientY, true);
+  }
+});
+
+stage.addEventListener("pointerup", () => {
+  if (mode === "demo") {
+    clearGrab();
   }
 });
 
@@ -266,10 +332,25 @@ function handleDetectedHand(hand) {
   if (hand) {
     const palmCenter = hand[9];
     const bounds = stage.getBoundingClientRect();
-    updatePointer((1 - palmCenter.x) * bounds.width, palmCenter.y * bounds.height);
+    updatePointer((1 - palmCenter.x) * bounds.width, palmCenter.y * bounds.height, true, isHandGrabbing(hand));
   } else {
-    clearHold();
+    clearGrab();
   }
+}
+
+function distanceBetween(first, second) {
+  return Math.hypot(first.x - second.x, first.y - second.y);
+}
+
+function isHandGrabbing(hand) {
+  const palmSize = Math.max(distanceBetween(hand[0], hand[9]), 0.001);
+  const thumbToIndex = distanceBetween(hand[4], hand[8]) / palmSize;
+  const foldedFingers = [8, 12, 16, 20].filter((tip) => {
+    const base = tip - 3;
+    return distanceBetween(hand[tip], hand[0]) < distanceBetween(hand[base], hand[0]) * 1.08;
+  }).length;
+
+  return thumbToIndex < 0.68 || foldedFingers >= 2;
 }
 
 async function createLegacyHands() {
@@ -337,8 +418,7 @@ async function activateCamera() {
     }
     trackerReady = true;
     setStatus("");
-    guide.textContent = "손을 보석 위에 천천히 올려주세요";
-    detectHands();
+    guide.textContent = "움직이는 별을 손으로 잡아주세요";
   } catch (error) {
     console.error(error);
     trackerReady = false;
@@ -360,11 +440,13 @@ async function activateCamera() {
 }
 
 async function detectHands() {
-  if (mode !== "camera" || !trackerReady) {
+  if (mode === "idle") {
     return;
   }
 
-  if (camera.readyState >= 2 && camera.currentTime !== lastVideoTime) {
+  moveTarget(performance.now());
+
+  if (mode === "camera" && trackerReady && camera.readyState >= 2 && camera.currentTime !== lastVideoTime) {
     lastVideoTime = camera.currentTime;
     if (trackingEngine === "legacy" && legacyHands && !framePending) {
       framePending = true;
@@ -387,7 +469,7 @@ async function detectHands() {
 function startDemoGame() {
   trackerReady = false;
   beginGame("demo");
-  guide.textContent = "손가락으로 별빛을 움직여 보석을 모아보세요";
+  guide.textContent = "손가락으로 별을 톡 눌러 잡아보세요";
 }
 
 function restartCurrentGame() {
