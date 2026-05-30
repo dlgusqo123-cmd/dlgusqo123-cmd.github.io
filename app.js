@@ -31,13 +31,17 @@ let mode = "idle";
 let stream = null;
 let handLandmarker = null;
 let legacyHands = null;
+let faceDetector = null;
 let trackingEngine = "";
 let animationId = null;
 let lastVideoTime = -1;
 let grabStart = null;
 let targetLocked = false;
 let trackerReady = false;
+let faceReady = false;
 let framePending = false;
+let facePending = false;
+let lastFaceTime = 0;
 let lastMoveTime = 0;
 const star = {
   x: 0,
@@ -55,6 +59,8 @@ function resetGame() {
   gemSlots.forEach((slot) => slot.classList.remove("filled"));
   crownGems.forEach((gem) => gem.classList.remove("filled"));
   headCrown.classList.add("hidden");
+  headCrown.style.left = "50%";
+  headCrown.style.top = "13%";
   crownBoard.classList.add("hidden");
   celebration.classList.add("hidden");
   targetGem.classList.remove("hidden", "collecting", "caught");
@@ -306,11 +312,11 @@ async function createHandLandmarker() {
   }
 }
 
-function loadScript(source) {
+function loadScript(source, globalName) {
   return new Promise((resolve, reject) => {
     const previous = document.querySelector(`script[src="${source}"]`);
     if (previous) {
-      if (window.Hands) {
+      if (!globalName || window[globalName]) {
         resolve();
         return;
       }
@@ -338,6 +344,54 @@ function handleDetectedHand(hand) {
   }
 }
 
+function getFaceBox(detection) {
+  const relativeBox = detection?.locationData?.relativeBoundingBox;
+  if (relativeBox) {
+    return {
+      xMin: relativeBox.xMin,
+      yMin: relativeBox.yMin,
+      width: relativeBox.width,
+      height: relativeBox.height,
+    };
+  }
+
+  const box = detection?.boundingBox;
+  if (box?.xCenter !== undefined) {
+    return {
+      xMin: box.xCenter - box.width / 2,
+      yMin: box.yCenter - box.height / 2,
+      width: box.width,
+      height: box.height,
+    };
+  }
+
+  return null;
+}
+
+function updateCrownFromFace(detection) {
+  const box = getFaceBox(detection);
+  if (!box) {
+    return;
+  }
+
+  const bounds = stage.getBoundingClientRect();
+  const faceCenterX = box.xMin + box.width / 2;
+  const crownX = (1 - faceCenterX) * bounds.width;
+  const crownY = Math.max(8, (box.yMin - box.height * 0.52) * bounds.height);
+  const crownScale = Math.min(1.25, Math.max(0.74, box.width * 4.2));
+
+  headCrown.style.left = `${crownX}px`;
+  headCrown.style.top = `${crownY}px`;
+  headCrown.style.setProperty("--crown-scale", crownScale);
+}
+
+function handleFaceResults(results) {
+  const detection = results?.detections?.[0];
+  if (detection) {
+    updateCrownFromFace(detection);
+  }
+}
+
 function distanceBetween(first, second) {
   return Math.hypot(first.x - second.x, first.y - second.y);
 }
@@ -354,7 +408,7 @@ function isHandGrabbing(hand) {
 }
 
 async function createLegacyHands() {
-  await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js");
+  await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js", "Hands");
   if (!window.Hands) {
     throw new Error("태블릿 호환 손 인식을 시작하지 못했습니다.");
   }
@@ -372,6 +426,25 @@ async function createLegacyHands() {
     await tracker.initialize();
   }
   return tracker;
+}
+
+async function createFaceDetector() {
+  await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js", "FaceDetection");
+  if (!window.FaceDetection) {
+    throw new Error("얼굴 인식을 시작하지 못했습니다.");
+  }
+  const detector = new window.FaceDetection({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`,
+  });
+  detector.setOptions({
+    model: "short",
+    minDetectionConfidence: 0.45,
+  });
+  detector.onResults(handleFaceResults);
+  if (typeof detector.initialize === "function") {
+    await detector.initialize();
+  }
+  return detector;
 }
 
 function timeoutAfter(milliseconds) {
@@ -402,6 +475,9 @@ async function activateCamera() {
     guide.textContent = "내 모습이 보여요! 마법을 준비하고 있어요...";
     setStatus("손 인식 준비 중...");
     await camera.play();
+    faceReady = false;
+    facePending = false;
+    lastFaceTime = 0;
     if (/Android/i.test(navigator.userAgent)) {
       setStatus("태블릿 호환 손 인식 준비 중...");
       legacyHands = await Promise.race([createLegacyHands(), timeoutAfter(25000)]);
@@ -415,6 +491,12 @@ async function activateCamera() {
         legacyHands = await Promise.race([createLegacyHands(), timeoutAfter(25000)]);
         trackingEngine = "legacy";
       }
+    }
+    try {
+      faceDetector = await Promise.race([createFaceDetector(), timeoutAfter(12000)]);
+      faceReady = true;
+    } catch (_error) {
+      faceReady = false;
     }
     trackerReady = true;
     setStatus("");
@@ -461,6 +543,20 @@ async function detectHands() {
       const result = handLandmarker.detectForVideo(camera, performance.now());
       handleDetectedHand(result.landmarks?.[0]);
     }
+
+    const now = performance.now();
+    if (faceReady && faceDetector && !facePending && now - lastFaceTime > 150) {
+      facePending = true;
+      lastFaceTime = now;
+      faceDetector
+        .send({ image: camera })
+        .catch(() => {
+          faceReady = false;
+        })
+        .finally(() => {
+          facePending = false;
+        });
+    }
   }
 
   animationId = requestAnimationFrame(detectHands);
@@ -469,7 +565,7 @@ async function detectHands() {
 function startDemoGame() {
   trackerReady = false;
   beginGame("demo");
-  guide.textContent = "손가락으로 별을 톡 눌러 잡아보세요";
+  guide.textContent = "손가락으로 별빛을 움직여 보석을 모아보세요";
 }
 
 function restartCurrentGame() {
