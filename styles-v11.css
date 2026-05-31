@@ -1,0 +1,39 @@
+@import url('./styles-v10.css?v=2');
+
+.crown-filter {
+  filter: drop-shadow(0 12px 12px rgba(45, 39, 58, 0.24)) drop-shadow(0 0 18px rgba(255, 206, 234, 0.58));
+  height: calc(var(--face-w) * 0.98);
+  top: calc(var(--face-h) * -0.86);
+  width: calc(var(--face-w) * 1.58);
+}
+
+.earrings-filter {
+  filter: drop-shadow(0 7px 7px rgba(68, 45, 78, 0.18)) drop-shadow(0 0 10px rgba(255, 201, 230, 0.34));
+  height: calc(var(--face-w) * 0.62);
+  top: calc(var(--face-h) * 0.12);
+  width: calc(var(--face-w) * 1.55);
+}
+
+.necklace-filter {
+  filter: drop-shadow(0 8px 8px rgba(68, 45, 78, 0.16)) drop-shadow(0 0 11px rgba(255, 201, 230, 0.32));
+  height: calc(var(--face-w) * 0.56);
+  top: calc(var(--face-h) * 0.9);
+  width: calc(var(--face-w) * 1.58);
+}
+
+.item-main {
+  filter: drop-shadow(0 8px 9px rgba(110, 64, 110, 0.2)) drop-shadow(0 0 14px rgba(255, 219, 240, 0.5));
+  stroke-linejoin: round;
+}
+
+.hand-overlay {
+  opacity: 0.94;
+}
+
+.target-gem::before {
+  background: radial-gradient(circle, rgba(255, 248, 255, 0.82) 0, rgba(255, 211, 235, 0.28) 44%, transparent 72%);
+}
+
+.target-gem::after {
+  box-shadow: 0 0 24px rgba(255, 174, 220, 0.54), 0 0 42px rgba(255, 255, 255, 0.38);
+}
