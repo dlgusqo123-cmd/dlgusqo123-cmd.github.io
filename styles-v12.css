@@ -1,0 +1,23 @@
+@import url("./styles-v11.css?v=1");
+
+.accessory-layer { overflow: hidden; z-index: 4; }
+.target-gem, .wand-pointer, .guide, .status { z-index: 12; }
+.reward-hearts i, .reward-stars i, .reward-shoe-path i { animation: rewardTwinkle 1.8s ease-in-out infinite; animation-delay: var(--d); color: #fff; filter: drop-shadow(0 0 10px #ff8fc6); font-size: clamp(18px, 3.2vw, 32px); opacity: .82; position: absolute; }
+.reward-hearts i { color: #ff75b5; }
+.reward-stars i { color: #fff2a8; filter: drop-shadow(0 0 12px #ffe26d); }
+.reward-shoe-path i { bottom: 10%; color: #dff0ff; filter: drop-shadow(0 0 12px #a8d8ff); }
+.reward-chest { background: linear-gradient(180deg, #ffb5d6, #c05291); border: 4px solid rgba(255,255,255,.82); border-radius: 18px 18px 14px 14px; bottom: 8%; box-shadow: 0 12px 24px rgba(91,37,67,.2), 0 0 22px rgba(255,199,229,.55); height: clamp(48px, 9vw, 78px); left: 8%; position: absolute; width: clamp(78px, 14vw, 128px); }
+.reward-chest::before { background: linear-gradient(180deg, #fff3fb, #ff8cc1); border: 4px solid rgba(255,255,255,.86); border-radius: 999px 999px 12px 12px; content: ""; height: 58%; inset: -42% -4px auto; position: absolute; }
+.reward-chest span, .reward-chest i, .reward-chest b { background: radial-gradient(circle at 34% 28%, #fff, #ff74b8 55%, #8f4bff); border-radius: 50%; box-shadow: 0 0 14px rgba(255,255,255,.78); display: block; height: 18px; position: absolute; top: -17px; width: 18px; }
+.reward-chest span { left: 23%; } .reward-chest i { left: 48%; top: -24px; } .reward-chest b { left: 68%; }
+.reward-ribbons span { background: radial-gradient(circle at 50% 8%, rgba(255,255,255,.74), transparent 18%), linear-gradient(180deg, rgba(255,139,198,.78), rgba(186,85,171,.42)); border: 2px solid rgba(255,255,255,.54); border-radius: 0 0 999px 999px; box-shadow: 0 0 24px rgba(255,175,220,.34); height: 54%; position: absolute; top: -2%; width: clamp(42px, 6vw, 78px); }
+.reward-ribbons span:first-child { left: 3%; transform: rotate(-3deg); } .reward-ribbons span:last-child { right: 3%; transform: rotate(3deg); }
+.reward-castle-crown { bottom: 34%; filter: drop-shadow(0 10px 12px rgba(48,39,72,.18)) drop-shadow(0 0 18px rgba(255,220,245,.62)); left: 50%; position: absolute; transform: translateX(-50%); width: clamp(58px, 10vw, 96px); }
+.reward-castle-crown svg { display: block; width: 100%; }
+.reward-aurora { animation: auroraFlow 5s ease-in-out infinite; background: radial-gradient(circle at 25% 28%, rgba(255,125,196,.28), transparent 30%), radial-gradient(circle at 75% 22%, rgba(118,177,255,.25), transparent 28%), linear-gradient(115deg, transparent 15%, rgba(255,255,255,.18), transparent 65%); inset: 0; mix-blend-mode: screen; pointer-events: none; position: absolute; }
+.reward-shoe-path { background: linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent); border-radius: 999px; bottom: 8%; height: 14%; left: 18%; opacity: .78; position: absolute; width: 64%; }
+.reward-castle-light { background: radial-gradient(circle at 50% 76%, rgba(255,245,168,.62), transparent 20%), radial-gradient(circle at 50% 98%, rgba(255,134,199,.28), transparent 42%); inset: 0; mix-blend-mode: screen; pointer-events: none; position: absolute; }
+.stage[data-cycle="1"] .reward-hearts i, .stage[data-cycle="1"] .reward-stars i, .stage[data-cycle="1"] .reward-shoe-path i { filter: drop-shadow(0 0 16px #b68cff); }
+.stage[data-current="ribbon"] .target-gem::before, .stage[data-current="orb"] .target-gem::before, .stage[data-current="castle"] .target-gem::before { background: radial-gradient(circle, rgba(255,255,255,.86) 0, rgba(186,137,255,.24) 44%, transparent 72%); }
+@keyframes rewardTwinkle { 0%,100% { opacity: .45; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.18); } }
+@keyframes auroraFlow { 0%,100% { opacity: .62; transform: translateX(-2%) scale(1); } 50% { opacity: .9; transform: translateX(2%) scale(1.03); } }
