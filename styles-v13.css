@@ -1,0 +1,217 @@
+@import url("./styles-v11.css?v=1");
+
+.stage {
+  --theater-height: clamp(180px, 34vh, 270px);
+}
+
+.stage.camera-mode .castle {
+  opacity: 0.12;
+}
+
+.accessory-layer {
+  inset: auto 14px 14px;
+  height: var(--theater-height);
+  overflow: visible;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.story-theater {
+  animation: theaterArrive 420ms ease-out both;
+  background:
+    radial-gradient(circle at 50% 4%, rgba(255, 255, 255, 0.9), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 236, 247, 0.7)),
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.92), transparent 30%);
+  border: 3px solid rgba(255, 255, 255, 0.84);
+  border-radius: 28px;
+  box-shadow:
+    0 16px 35px rgba(90, 42, 83, 0.18),
+    inset 0 0 26px rgba(255, 255, 255, 0.54);
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.story-theater::before {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 18px, transparent 18px 36px),
+    linear-gradient(90deg, rgba(178, 82, 159, 0.72), rgba(255, 158, 208, 0.36), rgba(178, 82, 159, 0.72));
+  border-bottom: 2px solid rgba(255, 255, 255, 0.58);
+  content: "";
+  height: 26px;
+  inset: 0 0 auto;
+  position: absolute;
+  z-index: 2;
+}
+
+.story-theater::after {
+  background:
+    linear-gradient(90deg, rgba(163, 66, 135, 0.48), transparent 14%, transparent 86%, rgba(163, 66, 135, 0.48)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 58%);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.theater-title {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  color: #9b3f74;
+  font-size: clamp(0.72rem, 1.8vw, 0.92rem);
+  font-weight: 800;
+  left: 50%;
+  padding: 6px 15px;
+  position: absolute;
+  top: 10px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.story-svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.story-svg path,
+.story-svg rect,
+.story-svg circle {
+  vector-effect: non-scaling-stroke;
+}
+
+.target-gem {
+  z-index: 12;
+}
+
+.target-gem::before {
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.82) 0, rgba(255, 214, 236, 0.24) 44%, transparent 72%);
+}
+
+.target-gem[data-kind="broom"] .gem-heart,
+.target-gem[data-kind="pumpkin"] .gem-heart,
+.target-gem[data-kind="wand"] .gem-heart {
+  filter:
+    drop-shadow(0 0 10px rgba(255, 240, 168, 0.96))
+    drop-shadow(0 0 22px rgba(255, 170, 72, 0.72))
+    drop-shadow(0 8px 12px rgba(149, 82, 39, 0.22));
+}
+
+.target-gem[data-kind="slipper"] .gem-heart,
+.target-gem[data-kind="gate"] .gem-heart {
+  filter:
+    drop-shadow(0 0 10px rgba(225, 244, 255, 0.96))
+    drop-shadow(0 0 24px rgba(135, 187, 255, 0.76))
+    drop-shadow(0 8px 12px rgba(73, 73, 140, 0.22));
+}
+
+.wand-pointer,
+.guide,
+.status {
+  z-index: 13;
+}
+
+.guide {
+  bottom: calc(var(--theater-height) + 24px);
+}
+
+.status {
+  bottom: calc(var(--theater-height) + 72px);
+}
+
+.story-sparkles text {
+  animation: storySparkle 1.9s ease-in-out infinite;
+  fill: #fff6a8;
+  filter: drop-shadow(0 0 8px rgba(255, 206, 89, 0.9));
+  font-size: 24px;
+  opacity: 0.72;
+}
+
+.coach-scene,
+.princess-scene,
+.castle-ball {
+  filter:
+    drop-shadow(0 10px 12px rgba(82, 45, 95, 0.16))
+    drop-shadow(0 0 14px rgba(255, 242, 185, 0.22));
+}
+
+.story-home,
+.cinderella-work,
+.invite-scene,
+.fairy-scene,
+.pumpkin-scene,
+.coach-scene,
+.horse-scene,
+.princess-scene,
+.castle-ball {
+  animation: storyPop 440ms cubic-bezier(0.2, 1.25, 0.3, 1) both;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.stage[data-story="1"] .story-theater {
+  box-shadow:
+    0 16px 35px rgba(90, 42, 83, 0.18),
+    inset 0 0 26px rgba(255, 255, 255, 0.45);
+}
+
+.stage[data-story="8"] .story-theater {
+  box-shadow:
+    0 18px 40px rgba(90, 42, 83, 0.18),
+    0 0 32px rgba(255, 232, 122, 0.34),
+    inset 0 0 30px rgba(255, 255, 255, 0.62);
+}
+
+@keyframes theaterArrive {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes storyPop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes storySparkle {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+}
+
+@media (max-height: 590px) and (orientation: landscape) {
+  .stage {
+    --theater-height: clamp(132px, 34vh, 188px);
+  }
+
+  .theater-title {
+    font-size: 0.68rem;
+    padding: 4px 12px;
+  }
+
+  .guide {
+    bottom: calc(var(--theater-height) + 16px);
+  }
+}
