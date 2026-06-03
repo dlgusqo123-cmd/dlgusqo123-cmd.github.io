@@ -1,0 +1,87 @@
+@import url("./styles-v13.css?v=1");
+
+.stage {
+  --theater-height: clamp(104px, 21vh, 164px);
+  --theater-width: min(42vw, 420px);
+}
+
+.accessory-layer {
+  inset: auto 12px 12px auto;
+  height: var(--theater-height);
+  width: var(--theater-width);
+  z-index: 3;
+}
+
+.story-theater {
+  border-radius: 18px;
+  border-width: 2px;
+  box-shadow:
+    0 10px 22px rgba(65, 37, 73, 0.16),
+    inset 0 0 18px rgba(255, 255, 255, 0.44);
+}
+
+.story-theater::before {
+  height: 16px;
+}
+
+.story-theater::after {
+  background:
+    linear-gradient(90deg, rgba(163, 66, 135, 0.26), transparent 16%, transparent 84%, rgba(163, 66, 135, 0.26)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 58%);
+}
+
+.theater-title {
+  font-size: clamp(0.58rem, 1.3vw, 0.72rem);
+  max-width: 88%;
+  overflow: hidden;
+  padding: 3px 10px;
+  text-overflow: ellipsis;
+  top: 5px;
+}
+
+.story-sparkles text {
+  font-size: 16px;
+  opacity: 0.5;
+}
+
+.guide {
+  bottom: 16px;
+  left: 18px;
+  max-width: min(52vw, 520px);
+  transform: none;
+  white-space: normal;
+}
+
+.status {
+  bottom: 64px;
+}
+
+.target-gem {
+  height: clamp(104px, 15vw, 132px);
+  width: clamp(104px, 15vw, 132px);
+}
+
+.gem-heart {
+  height: clamp(68px, 9vw, 92px);
+  width: clamp(68px, 9vw, 92px);
+}
+
+@media (orientation: portrait), (max-width: 760px) {
+  .stage {
+    --theater-height: clamp(108px, 18vh, 150px);
+    --theater-width: min(92vw, 430px);
+  }
+
+  .accessory-layer {
+    inset: auto 50% 10px auto;
+    transform: translateX(50%);
+  }
+
+  .guide {
+    bottom: calc(var(--theater-height) + 18px);
+    left: 50%;
+    max-width: 88vw;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+}
